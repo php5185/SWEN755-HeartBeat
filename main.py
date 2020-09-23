@@ -7,22 +7,25 @@ class RangeReceiver:
         self.expireTime = expireTime
         self.lastUpdated = time.time()
         self.checkingTime = time.time()
-    def receive_mpg(self, q):
+    def receive_mpg(self, q, q2):
         while True:
             msg = q.get()
             print('received message')
             if 'mpg' in msg:
                 self.update_time()
                 print('new time ' + str(self.lastUpdated))
-                q.put({'lastUpdated': self.lastUpdated})
+                q2.put({'lastUpdated': self.lastUpdated})
     def update_time(self):
         self.lastUpdated = time.time()
-    def check_alive(self, q):
+    def check_alive(self, q2):
         while True:
-            msg = q.get(timeout = 10)
-            if 'lastUpdated' in msg:
-                self.lastUpdated = msg['lastUpdated']
-                print('updating last updated')
+            try:
+                msg = q2.get(timeout=5)
+                if 'lastUpdated' in msg:
+                    self.lastUpdated = msg['lastUpdated']
+                    print('updating last updated')
+            except Exception as error:
+                print('queue stopped responding')
             time.sleep(self.checkingInterval)
             self.checkingTime = time.time()
             print('current time ' + str(self.checkingTime) + 'last Updated' + str(self.lastUpdated) + 'expire time' + str(self.expireTime))
@@ -64,14 +67,15 @@ class FaultMonitor:
 
 if __name__ == '__main__':
     q = Queue()
+    q2 = Queue()
     range_receiver = RangeReceiver(5, 20)
     range_sender = RangeSender(5, 200, 15)
     fault_monitor = FaultMonitor()
     p = Process(target= range_sender.heartbeat, args = (q,))
     p.start()
-    p2 = Process(target=range_receiver.check_alive, args = (q,))
+    p2 = Process(target=range_receiver.check_alive, args = (q2,))
     p2.start()
-    p3 = Process(target=range_receiver.receive_mpg, args=(q,))
+    p3 = Process(target=range_receiver.receive_mpg, args=(q, q2,))
     p3.start()
     p.join()
     p2.join()
