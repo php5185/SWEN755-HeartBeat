@@ -37,14 +37,14 @@ class RangeReceiver:
                     self.lastUpdated = msg['lastUpdated']
 
             except Exception:
-                FaultMonitor.logFailure('Process#' + pid + ' --> lastUpdatedQueue is not responding.')
+                FaultMonitor.log_failure('Process#' + pid + ' --> lastUpdatedQueue is not responding.')
 
             self.checkingTime = time.time()
             difference = self.checkingTime - self.lastUpdated
 
             if difference > self.expireTime:
-                FaultMonitor.logFailure('Process#' + pid + ' --> Sender module is not responding.')
-                FaultMonitor.logFailure('Process#' + pid + ' --> Last heartbeat was: ' + str(round(difference)) + ' ago.')
+                FaultMonitor.log_failure('Process#' + pid + ' --> Sender module is not responding.')
+                FaultMonitor.log_failure('Process#' + pid + ' --> Last heartbeat was: ' + str(round(difference)) + ' seconds ago.')
 
 class RangeSender:
     def __init__(self, interval, range, gasAmount):
@@ -72,7 +72,7 @@ class RangeSender:
 
 class FaultMonitor:
     @staticmethod
-    def logFailure(message):
+    def log_failure(message):
         print('Failure Monitor: ' + message)
 
 if __name__ == '__main__':
