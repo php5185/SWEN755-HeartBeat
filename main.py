@@ -3,7 +3,7 @@ import time
 import random
 import os 
 
-class RangeReceiver:
+class MPGReceiver:
     def __init__(self, checkingInterval, expireTime):
         self.checkingInterval = checkingInterval
         self.expireTime = expireTime
@@ -46,7 +46,7 @@ class RangeReceiver:
                 FaultMonitor.log_failure('Process#' + pid + ' --> Sender module is not responding.')
                 FaultMonitor.log_failure('Process#' + pid + ' --> Last heartbeat was: ' + str(round(difference)) + ' seconds ago.')
 
-class RangeSender:
+class MPGSender:
     def __init__(self, interval, range, gasAmount):
         self.sendinterval = interval
         self.gasAmount = gasAmount
@@ -79,16 +79,16 @@ if __name__ == '__main__':
     mpgQueue = Queue()
     lastUpdatedQueue = Queue()
 
-    range_receiver = RangeReceiver(5, 20)
-    range_sender = RangeSender(5, 200, 15)
+    mpg_receiver = MPGReceiver(5, 20)
+    mpg_sender = MPGSender(5, 200, 15)
 
-    heartbeatProcess = Process(target= range_sender.heartbeat, args = (mpgQueue,))
+    heartbeatProcess = Process(target= mpg_sender.heartbeat, args = (mpgQueue,))
     heartbeatProcess.start()
 
-    checkAliveProcess = Process(target=range_receiver.check_alive, args = (lastUpdatedQueue,))
+    checkAliveProcess = Process(target= mpg_receiver.check_alive, args = (lastUpdatedQueue,))
     checkAliveProcess.start()
 
-    receiveMpgProcess = Process(target=range_receiver.receive_mpg, args=(mpgQueue, lastUpdatedQueue,))
+    receiveMpgProcess = Process(target= mpg_receiver.receive_mpg, args=(mpgQueue, lastUpdatedQueue,))
     receiveMpgProcess.start()
     
     heartbeatProcess.join()
