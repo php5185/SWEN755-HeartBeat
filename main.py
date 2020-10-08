@@ -9,13 +9,33 @@ class MPGReceiver:
         self.expireTime = expireTime
         self.lastUpdated = time.time()
         self.checkingTime = time.time()
+        self.recoveryMode = False
 
-    def receive_mpg(self, mpgQueue, lastUpdatedQueue):
+    def receive_mpg(self, mpg1Queue, mpg2Queue, lastUpdatedQueue, recoveryQueue):
         pid = str(os.getpid())
 
         while True:
-            msg = mpgQueue.get()
-
+            if self.recoveryMode:
+                msg = mpg2Queue.get()
+                print('recovery mpg' + str(msg['mpg']))
+            else:
+                try:
+                    recovery = recoveryQueue.get()
+                    if 'switch' in recovery:
+                        if recovery['switch']:
+                            print('queue initiates recovery')
+                            self.recoveryMode = True
+                            msg = mpg2Queue.get()
+                        else:
+                            msg = mpg1Queue.get()
+                    else:
+                        msg = mpg1Queue.get()
+                except:
+                    msg = mpg1Queue.get()
+            try:
+                print(str(mpg1Queue.get()['mpg']))
+            except:
+                continue
             if 'mpg' in msg:
                 self.update_time()
                 lastUpdatedQueue.put({'lastUpdated': self.lastUpdated})
@@ -24,27 +44,24 @@ class MPGReceiver:
     def update_time(self):
         self.lastUpdated = time.time()
 
-    def check_alive(self, lastUpdatedQueue):
+    def check_alive(self, lastUpdatedQueue, recoveryQueue, faultMonitor):
         pid = str(os.getpid())
-
         while True:
             time.sleep(self.checkingInterval)
-
             try:
-                msg = lastUpdatedQueue.get(timeout=5)
+                msg = lastUpdatedQueue.get(timeout=10)
 
                 if 'lastUpdated' in msg:
                     self.lastUpdated = msg['lastUpdated']
 
             except Exception:
-                FaultMonitor.log_failure('Process#' + pid + ' --> lastUpdatedQueue is not responding.')
+                print('Process#' + pid + ' --> lastUpdatedQueue is not responding.')
 
             self.checkingTime = time.time()
             difference = self.checkingTime - self.lastUpdated
 
             if difference > self.expireTime:
-                FaultMonitor.log_failure('Process#' + pid + ' --> Sender module is not responding.')
-                FaultMonitor.log_failure('Process#' + pid + ' --> Last heartbeat was: ' + str(round(difference)) + ' seconds ago.')
+                faultMonitor.log_failure('Process#' + pid + ' --> Sender module is not responding.',recoveryQueue)
 
 class MPGSender:
     def __init__(self, interval, range, gasAmount):
@@ -70,25 +87,38 @@ class MPGSender:
 
         return mpg
 
+
 class FaultMonitor:
-    @staticmethod
-    def log_failure(message):
+
+    def recovery(self, recoveryQueue):
+        print('putting recovery in')
+        recoveryQueue.put({'switch': True})
+
+    def log_failure(self, message, recoveryQueue):
+        self.recovery(recoveryQueue)
         print('Failure Monitor: ' + message)
 
 if __name__ == '__main__':
-    mpgQueue = Queue()
+    mpg1Queue = Queue()
+    mpg2Queue = Queue()
     lastUpdatedQueue = Queue()
+    recoveryQueue = Queue()
 
     mpg_receiver = MPGReceiver(5, 20)
-    mpg_sender = MPGSender(5, 200, 15)
+    mpg_sender1 = MPGSender(5, 200, 10)
+    mpg_sender2 = MPGSender(5, 200, 100)
+    faultMonitor = FaultMonitor()
 
-    heartbeatProcess = Process(target= mpg_sender.heartbeat, args = (mpgQueue,))
+    heartbeatProcess = Process(target= mpg_sender1.heartbeat, args = (mpg1Queue,))
     heartbeatProcess.start()
 
-    checkAliveProcess = Process(target= mpg_receiver.check_alive, args = (lastUpdatedQueue,))
+    heartbeatProcess2 = Process(target=mpg_sender2.heartbeat, args= (mpg2Queue,))
+    heartbeatProcess2.start()
+
+    checkAliveProcess = Process(target= mpg_receiver.check_alive, args = (lastUpdatedQueue,recoveryQueue, faultMonitor))
     checkAliveProcess.start()
 
-    receiveMpgProcess = Process(target= mpg_receiver.receive_mpg, args=(mpgQueue, lastUpdatedQueue,))
+    receiveMpgProcess = Process(target= mpg_receiver.receive_mpg, args=(mpg1Queue,mpg2Queue,lastUpdatedQueue,recoveryQueue))
     receiveMpgProcess.start()
     
     heartbeatProcess.join()
