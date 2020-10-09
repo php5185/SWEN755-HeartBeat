@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     mpg_receiver = MPGReceiver(5, 20)
     mpg_sender = MPGSender(5, 200, 15)
-    mpg_sender_recovery = MPGSender(5, 200, 20)
+    mpg_sender_recovery = MPGSender(5, 200, 200)
 
     heartbeatProcess = Process(target= mpg_sender.heartbeat, args = (mpgQueue,))
     heartbeatProcess.start()
