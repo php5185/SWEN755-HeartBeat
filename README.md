@@ -6,6 +6,7 @@ This project implements the availability tactic of active redundancy. The progra
 REQUIREMENTS:
 
 Python 3
+multiprocessing package (process and queue)
 
 
 RUN THE PROJECT:
